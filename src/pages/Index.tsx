@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Icon from '@/components/ui/icon';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -49,6 +49,30 @@ const Index = () => {
   const [newMessage, setNewMessage] = useState('');
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [createGroupOpen, setCreateGroupOpen] = useState(false);
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [chats, setChats] = useState<Chat[]>([]);
+  const [currentTime, setCurrentTime] = useState(new Date());
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentTime(new Date());
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  useEffect(() => {
+    setChats(mockChats);
+  }, []);
+
+  useEffect(() => {
+    if (selectedChat) {
+      setMessages(mockMessages);
+    }
+  }, [selectedChat]);
+
+  const formatTime = (date: Date) => {
+    return date.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+  };
 
   const mockChats: Chat[] = [
     {
@@ -146,14 +170,58 @@ const Index = () => {
   ];
 
   const handleSendMessage = () => {
-    if (newMessage.trim()) {
+    if (newMessage.trim() && selectedChat) {
+      const newMsg: Message = {
+        id: messages.length + 1,
+        text: newMessage,
+        time: formatTime(new Date()),
+        isMine: true,
+      };
+      setMessages([...messages, newMsg]);
       setNewMessage('');
+
+      const updatedChats = chats.map(chat => {
+        if (chat.id === selectedChat.id) {
+          return { ...chat, lastMessage: newMessage, time: formatTime(new Date()) };
+        }
+        return chat;
+      });
+      setChats(updatedChats);
+
+      setTimeout(() => {
+        const responseMsg: Message = {
+          id: messages.length + 2,
+          text: '✨ Сообщение получено!',
+          time: formatTime(new Date()),
+          isMine: false,
+        };
+        setMessages(prev => [...prev, responseMsg]);
+
+        const updatedChatsWithResponse = chats.map(chat => {
+          if (chat.id === selectedChat.id) {
+            return { ...chat, lastMessage: '✨ Сообщение получено!', time: formatTime(new Date()), unread: chat.unread + 1 };
+          }
+          return chat;
+        });
+        setChats(updatedChatsWithResponse);
+      }, 1500);
     }
   };
 
-  const filteredChats = mockChats.filter((chat) =>
+  const filteredChats = chats.filter((chat) =>
     chat.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
+
+  const handleChatSelect = (chat: Chat) => {
+    setSelectedChat(chat);
+    const updatedChats = chats.map(c => {
+      if (c.id === chat.id) {
+        return { ...c, unread: 0 };
+      }
+      return c;
+    });
+    setChats(updatedChats);
+  };
 
   return (
     <div className="flex h-screen bg-background">
@@ -208,11 +276,16 @@ const Index = () => {
       <div className="w-96 flex flex-col border-r border-border bg-card">
         <div className="p-6 space-y-4 border-b border-border">
           <div className="flex items-center justify-between">
-            <h1 className="text-2xl font-bold bg-gradient-to-r from-primary via-secondary to-accent bg-clip-text text-transparent">
-              {activeTab === 'chats' && 'Чаты'}
-              {activeTab === 'calls' && 'Звонки'}
-              {activeTab === 'contacts' && 'Контакты'}
-            </h1>
+            <div>
+              <h1 className="text-2xl font-bold bg-gradient-to-r from-primary via-secondary to-accent bg-clip-text text-transparent">
+                {activeTab === 'chats' && 'Чаты'}
+                {activeTab === 'calls' && 'Звонки'}
+                {activeTab === 'contacts' && 'Контакты'}
+              </h1>
+              <p className="text-xs text-muted-foreground mt-1">
+                {currentTime.toLocaleDateString('ru-RU', { weekday: 'long', day: 'numeric', month: 'long' })}
+              </p>
+            </div>
             {activeTab === 'chats' && (
               <Button
                 onClick={() => setCreateGroupOpen(true)}
@@ -245,7 +318,7 @@ const Index = () => {
               {filteredChats.map((chat) => (
                 <button
                   key={chat.id}
-                  onClick={() => setSelectedChat(chat)}
+                  onClick={() => handleChatSelect(chat)}
                   className={`w-full p-4 flex items-start gap-3 transition-all hover:bg-muted/50 animate-fade-in ${
                     selectedChat?.id === chat.id ? 'bg-muted' : ''
                   }`}
@@ -349,7 +422,7 @@ const Index = () => {
               </Button>
 
               <div className="space-y-2">
-                {mockChats
+                {chats
                   .filter((c) => !c.isGroup)
                   .map((contact) => (
                     <div
@@ -398,7 +471,7 @@ const Index = () => {
                 <div>
                   <h2 className="font-semibold">{selectedChat.name}</h2>
                   <p className="text-xs text-muted-foreground">
-                    {selectedChat.online ? 'В сети' : 'Не в сети'}
+                    {selectedChat.online ? `В сети • ${formatTime(currentTime)}` : 'Не в сети'}
                   </p>
                 </div>
               </div>
@@ -430,7 +503,7 @@ const Index = () => {
 
             <ScrollArea className="flex-1 p-6">
               <div className="space-y-4 max-w-3xl mx-auto">
-                {mockMessages.map((message) => (
+                {messages.map((message) => (
                   <div
                     key={message.id}
                     className={`flex animate-fade-in ${
@@ -632,7 +705,7 @@ const Index = () => {
             <div className="space-y-2">
               <Label>Добавить участников</Label>
               <div className="space-y-2 max-h-48 overflow-y-auto">
-                {mockChats
+                {chats
                   .filter((c) => !c.isGroup)
                   .map((contact) => (
                     <div
