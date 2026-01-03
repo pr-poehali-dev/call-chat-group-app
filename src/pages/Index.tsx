@@ -24,6 +24,7 @@ type Chat = {
   unread: number;
   online: boolean;
   isGroup?: boolean;
+  isBot?: boolean;
 };
 
 type Call = {
@@ -40,6 +41,8 @@ type Message = {
   text: string;
   time: string;
   isMine: boolean;
+  type?: 'text' | 'video' | 'sticker';
+  stickerEmoji?: string;
 };
 
 const Index = () => {
@@ -49,9 +52,15 @@ const Index = () => {
   const [newMessage, setNewMessage] = useState('');
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [createGroupOpen, setCreateGroupOpen] = useState(false);
+  const [addContactOpen, setAddContactOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
   const [chats, setChats] = useState<Chat[]>([]);
   const [currentTime, setCurrentTime] = useState(new Date());
+  const [showStickers, setShowStickers] = useState(false);
+  const [newContactName, setNewContactName] = useState('');
+  const [newContactPhone, setNewContactPhone] = useState('');
+  const [newGroupName, setNewGroupName] = useState('');
+  const [selectedMembers, setSelectedMembers] = useState<number[]>([]);
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -77,6 +86,16 @@ const Index = () => {
   const mockChats: Chat[] = [
     {
       id: 1,
+      name: 'Terix',
+      lastMessage: 'Привет! Я бот-помощник TeMix 🤖',
+      time: '09:00',
+      avatar: '',
+      unread: 0,
+      online: true,
+      isBot: true,
+    },
+    {
+      id: 2,
       name: 'Алексей Смирнов',
       lastMessage: 'Привет! Как дела? 👋',
       time: '12:45',
@@ -85,7 +104,7 @@ const Index = () => {
       online: true,
     },
     {
-      id: 2,
+      id: 3,
       name: 'Дизайн Команда',
       lastMessage: 'Мария: Отличная идея!',
       time: '11:20',
@@ -95,7 +114,7 @@ const Index = () => {
       isGroup: true,
     },
     {
-      id: 3,
+      id: 4,
       name: 'Ольга Петрова',
       lastMessage: 'Созвонимся в 3?',
       time: 'Вчера',
@@ -104,7 +123,7 @@ const Index = () => {
       online: true,
     },
     {
-      id: 4,
+      id: 5,
       name: 'Проект 2024',
       lastMessage: 'Иван: Документы готовы',
       time: 'Вчера',
@@ -148,63 +167,138 @@ const Index = () => {
       text: 'Привет! Как проект продвигается?',
       time: '12:30',
       isMine: false,
+      type: 'text',
     },
     {
       id: 2,
       text: 'Отлично! Завтра покажу результаты',
       time: '12:32',
       isMine: true,
+      type: 'text',
     },
     {
       id: 3,
       text: 'Супер! Жду с нетерпением 🚀',
       time: '12:33',
       isMine: false,
+      type: 'text',
     },
     {
       id: 4,
       text: 'Кстати, нашел интересное решение для анимаций',
       time: '12:35',
       isMine: true,
+      type: 'text',
     },
   ];
 
-  const handleSendMessage = () => {
-    if (newMessage.trim() && selectedChat) {
+  const stickers = ['😀', '😂', '🥰', '😎', '🤔', '👍', '❤️', '🔥', '✨', '🎉', '👋', '🚀'];
+
+  const handleSendMessage = (messageType: 'text' | 'video' | 'sticker' = 'text', content?: string) => {
+    if ((newMessage.trim() || content) && selectedChat) {
       const newMsg: Message = {
         id: messages.length + 1,
-        text: newMessage,
+        text: content || newMessage,
         time: formatTime(new Date()),
         isMine: true,
+        type: messageType,
+        stickerEmoji: messageType === 'sticker' ? (content || newMessage) : undefined,
       };
       setMessages([...messages, newMsg]);
       setNewMessage('');
+      setShowStickers(false);
 
+      const displayText = messageType === 'video' ? '🎥 Видеосообщение' : messageType === 'sticker' ? content : (content || newMessage);
       const updatedChats = chats.map(chat => {
         if (chat.id === selectedChat.id) {
-          return { ...chat, lastMessage: newMessage, time: formatTime(new Date()) };
+          return { ...chat, lastMessage: displayText, time: formatTime(new Date()) };
         }
         return chat;
       });
       setChats(updatedChats);
 
-      setTimeout(() => {
-        const responseMsg: Message = {
-          id: messages.length + 2,
-          text: '✨ Сообщение получено!',
-          time: formatTime(new Date()),
-          isMine: false,
-        };
-        setMessages(prev => [...prev, responseMsg]);
+      if (selectedChat.isBot) {
+        setTimeout(() => {
+          const botResponses = [
+            '🤖 Я помогу вам с любыми вопросами!',
+            '✨ TeMix - лучший мессенджер!',
+            '🚀 Отличный выбор! Чем могу помочь?',
+            '💬 Всегда на связи для вас!',
+          ];
+          const responseMsg: Message = {
+            id: messages.length + 2,
+            text: botResponses[Math.floor(Math.random() * botResponses.length)],
+            time: formatTime(new Date()),
+            isMine: false,
+            type: 'text',
+          };
+          setMessages(prev => [...prev, responseMsg]);
+        }, 1000);
+      } else {
+        setTimeout(() => {
+          const responseMsg: Message = {
+            id: messages.length + 2,
+            text: '✨ Сообщение получено!',
+            time: formatTime(new Date()),
+            isMine: false,
+            type: 'text',
+          };
+          setMessages(prev => [...prev, responseMsg]);
 
-        const updatedChatsWithResponse = chats.map(chat => {
-          if (chat.id === selectedChat.id) {
-            return { ...chat, lastMessage: '✨ Сообщение получено!', time: formatTime(new Date()), unread: chat.unread + 1 };
-          }
-          return chat;
-        });
-        setChats(updatedChatsWithResponse);
-      }, 1500);
+          const updatedChatsWithResponse = chats.map(chat => {
+            if (chat.id === selectedChat.id) {
+              return { ...chat, lastMessage: '✨ Сообщение получено!', time: formatTime(new Date()), unread: chat.unread + 1 };
+            }
+            return chat;
+          });
+          setChats(updatedChatsWithResponse);
+        }, 1500);
+      }
+    }
+  };
+
+  const handleAddContact = () => {
+    if (newContactName.trim() && newContactPhone.trim()) {
+      const newContact: Chat = {
+        id: chats.length + 1,
+        name: newContactName,
+        lastMessage: 'Новый контакт',
+        time: formatTime(new Date()),
+        avatar: '',
+        unread: 0,
+        online: false,
+      };
+      setChats([...chats, newContact]);
+      setNewContactName('');
+      setNewContactPhone('');
+      setAddContactOpen(false);
+    }
+  };
+
+  const handleCreateGroup = () => {
+    if (newGroupName.trim() && selectedMembers.length > 0) {
+      const newGroup: Chat = {
+        id: chats.length + 1,
+        name: newGroupName,
+        lastMessage: 'Группа создана',
+        time: formatTime(new Date()),
+        avatar: '',
+        unread: 0,
+        online: false,
+        isGroup: true,
+      };
+      setChats([...chats, newGroup]);
+      setNewGroupName('');
+      setSelectedMembers([]);
+      setCreateGroupOpen(false);
+    }
+  };
+
+  const toggleMemberSelection = (memberId: number) => {
+    if (selectedMembers.includes(memberId)) {
+      setSelectedMembers(selectedMembers.filter(id => id !== memberId));
+    } else {
+      setSelectedMembers([...selectedMembers, memberId]);
     }
   };
 
@@ -226,8 +320,9 @@ const Index = () => {
   return (
     <div className="flex h-screen bg-background">
       <div className="w-20 bg-sidebar flex flex-col items-center py-6 space-y-8 border-r border-sidebar-border">
-        <div className="w-12 h-12 rounded-2xl gradient-primary flex items-center justify-center text-white font-bold text-xl animate-pulse-glow">
-          C
+        <div className="w-14 h-14 rounded-2xl gradient-primary flex items-center justify-center text-white font-bold text-sm animate-pulse-glow flex-col">
+          <span className="text-lg leading-none">Te</span>
+          <span className="text-xs leading-none">Mix</span>
         </div>
 
         <nav className="flex-1 flex flex-col space-y-6">
@@ -326,8 +421,10 @@ const Index = () => {
                   <div className="relative">
                     <Avatar className="w-12 h-12">
                       <AvatarImage src={chat.avatar} />
-                      <AvatarFallback className="gradient-card">
-                        {chat.isGroup ? (
+                      <AvatarFallback className={chat.isBot ? 'gradient-primary text-white' : 'gradient-card'}>
+                        {chat.isBot ? (
+                          <Icon name="Bot" size={20} />
+                        ) : chat.isGroup ? (
                           <Icon name="Users" size={20} />
                         ) : (
                           chat.name[0]
@@ -416,7 +513,10 @@ const Index = () => {
 
           {activeTab === 'contacts' && (
             <div className="p-6 space-y-4">
-              <Button className="w-full gradient-primary text-white hover:opacity-90 transition-opacity rounded-xl">
+              <Button 
+                onClick={() => setAddContactOpen(true)}
+                className="w-full gradient-primary text-white hover:opacity-90 transition-opacity rounded-xl"
+              >
                 <Icon name="UserPlus" size={18} className="mr-2" />
                 Добавить контакт
               </Button>
@@ -460,8 +560,10 @@ const Index = () => {
               <div className="flex items-center gap-3">
                 <Avatar className="w-10 h-10">
                   <AvatarImage src={selectedChat.avatar} />
-                  <AvatarFallback className="gradient-card">
-                    {selectedChat.isGroup ? (
+                  <AvatarFallback className={selectedChat.isBot ? 'gradient-primary text-white' : 'gradient-card'}>
+                    {selectedChat.isBot ? (
+                      <Icon name="Bot" size={18} />
+                    ) : selectedChat.isGroup ? (
                       <Icon name="Users" size={18} />
                     ) : (
                       selectedChat.name[0]
@@ -517,7 +619,16 @@ const Index = () => {
                           : 'bg-muted text-foreground rounded-bl-md'
                       }`}
                     >
-                      <p className="text-sm">{message.text}</p>
+                      {message.type === 'sticker' ? (
+                        <div className="text-6xl">{message.stickerEmoji}</div>
+                      ) : message.type === 'video' ? (
+                        <div className="flex items-center gap-2">
+                          <Icon name="Video" size={24} className={message.isMine ? 'text-white' : ''} />
+                          <span className="text-sm">Видеосообщение</span>
+                        </div>
+                      ) : (
+                        <p className="text-sm">{message.text}</p>
+                      )}
                       <span
                         className={`text-xs mt-1 block ${
                           message.isMine
@@ -534,13 +645,28 @@ const Index = () => {
             </ScrollArea>
 
             <div className="p-6 border-t border-border bg-card">
+              {showStickers && (
+                <div className="mb-4 p-4 bg-muted rounded-2xl grid grid-cols-6 gap-2 animate-fade-in max-w-3xl mx-auto">
+                  {stickers.map((sticker, index) => (
+                    <button
+                      key={index}
+                      onClick={() => handleSendMessage('sticker', sticker)}
+                      className="text-4xl hover:scale-125 transition-transform"
+                    >
+                      {sticker}
+                    </button>
+                  ))}
+                </div>
+              )}
+
               <div className="flex gap-3 items-end max-w-3xl mx-auto">
                 <Button
                   size="icon"
                   variant="ghost"
                   className="rounded-full hover:bg-muted flex-shrink-0"
+                  onClick={() => handleSendMessage('video', '🎥 Видеосообщение')}
                 >
-                  <Icon name="Paperclip" size={20} />
+                  <Icon name="Video" size={20} />
                 </Button>
 
                 <div className="flex-1 relative">
@@ -548,12 +674,13 @@ const Index = () => {
                     placeholder="Введите сообщение..."
                     value={newMessage}
                     onChange={(e) => setNewMessage(e.target.value)}
-                    onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()}
+                    onKeyDown={(e) => e.key === 'Enter' && !showStickers && handleSendMessage()}
                     className="rounded-2xl pr-12 bg-muted border-0"
                   />
                   <Button
                     size="icon"
                     variant="ghost"
+                    onClick={() => setShowStickers(!showStickers)}
                     className="absolute right-1 top-1/2 -translate-y-1/2 rounded-full hover:bg-background"
                   >
                     <Icon name="Smile" size={20} />
@@ -561,7 +688,7 @@ const Index = () => {
                 </div>
 
                 <Button
-                  onClick={handleSendMessage}
+                  onClick={() => handleSendMessage()}
                   size="icon"
                   className="rounded-full gradient-primary hover:opacity-90 transition-opacity flex-shrink-0"
                 >
@@ -699,18 +826,27 @@ const Index = () => {
           <div className="space-y-4">
             <div className="space-y-2">
               <Label>Название группы</Label>
-              <Input placeholder="Введите название группы" />
+              <Input 
+                placeholder="Введите название группы"
+                value={newGroupName}
+                onChange={(e) => setNewGroupName(e.target.value)}
+              />
             </div>
 
             <div className="space-y-2">
-              <Label>Добавить участников</Label>
+              <Label>Добавить участников ({selectedMembers.length} выбрано)</Label>
               <div className="space-y-2 max-h-48 overflow-y-auto">
                 {chats
-                  .filter((c) => !c.isGroup)
+                  .filter((c) => !c.isGroup && !c.isBot)
                   .map((contact) => (
                     <div
                       key={contact.id}
-                      className="flex items-center gap-3 p-2 rounded-lg hover:bg-muted cursor-pointer"
+                      onClick={() => toggleMemberSelection(contact.id)}
+                      className={`flex items-center gap-3 p-2 rounded-lg cursor-pointer transition-all ${
+                        selectedMembers.includes(contact.id) 
+                          ? 'bg-primary/20 border-2 border-primary' 
+                          : 'hover:bg-muted'
+                      }`}
                     >
                       <Avatar className="w-8 h-8">
                         <AvatarImage src={contact.avatar} />
@@ -718,14 +854,60 @@ const Index = () => {
                           {contact.name[0]}
                         </AvatarFallback>
                       </Avatar>
-                      <span className="text-sm">{contact.name}</span>
+                      <span className="text-sm flex-1">{contact.name}</span>
+                      {selectedMembers.includes(contact.id) && (
+                        <Icon name="Check" size={16} className="text-primary" />
+                      )}
                     </div>
                   ))}
               </div>
             </div>
 
-            <Button className="w-full gradient-primary text-white hover:opacity-90 transition-opacity">
+            <Button 
+              onClick={handleCreateGroup}
+              disabled={!newGroupName.trim() || selectedMembers.length === 0}
+              className="w-full gradient-primary text-white hover:opacity-90 transition-opacity disabled:opacity-50"
+            >
               Создать группу
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={addContactOpen} onOpenChange={setAddContactOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Добавить контакт</DialogTitle>
+            <DialogDescription>
+              Введите имя и номер телефона нового контакта
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>Имя контакта</Label>
+              <Input 
+                placeholder="Введите имя"
+                value={newContactName}
+                onChange={(e) => setNewContactName(e.target.value)}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label>Номер телефона</Label>
+              <Input 
+                placeholder="+7 (___) ___-__-__"
+                value={newContactPhone}
+                onChange={(e) => setNewContactPhone(e.target.value)}
+              />
+            </div>
+
+            <Button 
+              onClick={handleAddContact}
+              disabled={!newContactName.trim() || !newContactPhone.trim()}
+              className="w-full gradient-primary text-white hover:opacity-90 transition-opacity disabled:opacity-50"
+            >
+              Добавить контакт
             </Button>
           </div>
         </DialogContent>
